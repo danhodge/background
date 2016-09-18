@@ -1,4 +1,4 @@
-class ActiveThreeRetries < ApplicationJob
+class ActiveThreeTries < ApplicationJob
   queue_as :default
 
   def perform
