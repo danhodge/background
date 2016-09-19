@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Title</title>
+    <meta charset="utf-8">
+    <style>
+      @import url(https://fonts.googleapis.com/css?family=Yanone+Kaffeesatz);
+      @import url(https://fonts.googleapis.com/css?family=Droid+Serif:400,700,400italic);
+      @import url(https://fonts.googleapis.com/css?family=Ubuntu+Mono:400,700,400italic);
+
+      body { font-family: 'Droid Serif'; }
+      h1, h2, h3 {
+        font-family: 'Yanone Kaffeesatz';
+        font-weight: normal;
+      }
+      .remark-code, .remark-inline-code { font-family: 'Ubuntu Mono'; }
+    </style>
+  </head>
+  <body>
+    <textarea id="source">
+
+class: center, middle
+
+# Job Opportunities
+
+.right[
+RIRUG /
+Sept. 19, 2016 /
+@danhodge
+]
+
+---
+
+# Agenda
+
+1. What is Active Job?
+2. What are its shortcomings?
+3. What's the solution?
+
+---
+
+# What is Active Job?
+
+* Introduced in Rails 4.2
+* Abstraction layer for background processing
+
+---
+
+# The Problems with Active Job
+
+* Configurable Retry
+* Tightly Coupled to Rails
+
+---
+
+# These Jobs Never Retry
+
+```ruby
+class ActiveNeverRetry < ApplicationJob
+  queue_as :default
+
+  rescue_from(StandardError) do |exception|
+    Rails.logger.error "Job failed: #{exception.message}"
+  end
+
+  def perform
+    raise 'Failure'
+  end
+end
+```
+
+```ruby
+class DelayedNeverRetry
+  def perform
+    raise 'Failure'
+  end
+
+  def max_attempts
+    1
+  end
+
+  def failure(job)
+    Rails.logger.error "Job failed: #{job.last_error.each_line.first}"
+  end
+end
+```
+
+---
+
+# This Job Retries Exactly Twice
+
+```ruby
+Delayed::Worker.max_attempts = 3
+```
+
+```ruby
+class ActiveThreeTries < ApplicationJob
+  queue_as :default
+
+  def perform
+    raise 'Failure'
+  end
+end
+```
+
+* All other jobs must never retry or use the same retry policy
+
+---
+
+# This Job Retries Exactly Three Times
+
+```ruby
+class DelayedFourTries
+  def perform
+    raise 'Failure'
+  end
+
+  def max_attempts
+    4
+  end
+end
+```
+
+* Each job can define its own retry policy
+
+---
+
+# Coupling
+
+```ruby
+class DelayedFanoutJob
+  def initialize(count:, queue:)
+    @count = count
+    @queue = queue
+  end
+
+  def perform
+    @count.times.each do |i|
+      @queue.enqueue(DelayedChildJob.new(i))
+    end
+  end
+
+  def max_attempts
+    1
+  end
+end
+```
+
+* Active Job does not split the job queue and the job definition into separate classes/responsibilities
+* Difficult to write tests that don't reference Active Job
+
+---
+
+# The Good Parts
+
+* GlobalID: https://github.com/rails/globalid
+
+---
+
+# TL;DR
+
+Consider using your background job processing framework of choice rather than Active Job, especially if you are doing more complicated processing.
+
+    </textarea>
+    <script src="https://gnab.github.io/remark/downloads/remark-latest.min.js">
+    </script>
+    <script>
+      var slideshow = remark.create();
+    </script>
+  </body>
+</html>
